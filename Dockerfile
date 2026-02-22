@@ -32,7 +32,8 @@ RUN pip install --no-cache-dir \
     ftfy \
     facexlib \
     "optimum-quanto>=0.2.7" \
-    peft
+    peft \
+    torchsde
 
 # Clone PuLID repo (encoder code + EVA-CLIP)
 RUN git clone --depth 1 https://github.com/ToTheBeginning/PuLID.git /app/PuLID \
