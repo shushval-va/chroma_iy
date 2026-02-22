@@ -320,8 +320,10 @@ def load_models():
     freeze(text_encoder)
 
     pipe = ChromaPipeline.from_pretrained(CHROMA_DIR, text_encoder=text_encoder, torch_dtype=dtype)
+    quantize(pipe.transformer, weights=qint8)
+    freeze(pipe.transformer)
     pipe.to(device)
-    print("  Chroma loaded (T5 quantized to int8, transformer bf16)")
+    print("  Chroma loaded (T5 + transformer quantized to int8)")
 
     # --- 2. PuLID model ---
     print("[2/5] Loading PuLID model...")
