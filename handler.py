@@ -320,10 +320,8 @@ def load_models():
     freeze(text_encoder)
 
     pipe = ChromaPipeline.from_pretrained(CHROMA_DIR, text_encoder=text_encoder, torch_dtype=dtype)
-    quantize(pipe.transformer, weights=qint8)
-    freeze(pipe.transformer)
     pipe.to(device)
-    print("  Chroma loaded (transformer + T5 quantized to int8)")
+    print("  Chroma loaded (T5 quantized to int8, transformer bf16)")
 
     # --- 2. PuLID model ---
     print("[2/5] Loading PuLID model...")
@@ -378,7 +376,9 @@ def load_models():
 
     gc.collect()
     torch.cuda.empty_cache()
-    print("=== All models loaded ===")
+    vram_gb = torch.cuda.memory_allocated() / 1024**3
+    vram_reserved_gb = torch.cuda.memory_reserved() / 1024**3
+    print(f"=== All models loaded === VRAM: {vram_gb:.1f}GB allocated, {vram_reserved_gb:.1f}GB reserved")
 
 
 # ---------------------------------------------------------------------------
