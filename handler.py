@@ -394,11 +394,13 @@ def handler(job):
     face_np = np.array(face_pil)
 
     prompt = inp.get("prompt", "a woman, portrait photo")
+    negative_prompt = inp.get("negative_prompt", "low quality, ugly, unfinished, out of focus, deformed, disfigure, blurry")
     width = inp.get("width", 768)
     height = inp.get("height", 1024)
-    num_steps = inp.get("num_steps", 26)
-    guidance_scale = inp.get("guidance_scale", 0.0)
+    num_steps = inp.get("num_steps", 35)
+    guidance_scale = inp.get("guidance_scale", 5.0)
     id_weight = inp.get("id_weight", 1.0)
+    no_pulid = inp.get("no_pulid", False)
     seed = inp.get("seed", 0)
     if seed == 0:
         seed = int(torch.seed() & 0xFFFFFFFF)
@@ -415,18 +417,22 @@ def handler(job):
         id_embedding = pulid_model.pulid_encoder(id_cond, id_vit_hidden)
     print(f"  id_embedding shape: {id_embedding.shape}")
 
-    # Activate PuLID on transformer
-    pipe.transformer._pulid_data = {
-        "ca": pulid_model.pulid_ca,
-        "embedding": id_embedding,
-        "weight": id_weight,
-    }
+    # Activate PuLID on transformer (skip if no_pulid debug mode)
+    if not no_pulid and id_weight > 0:
+        pipe.transformer._pulid_data = {
+            "ca": pulid_model.pulid_ca,
+            "embedding": id_embedding,
+            "weight": id_weight,
+        }
+    else:
+        pipe.transformer._pulid_data = None
 
     # Generate
     print(f"Generating {width}x{height}, steps={num_steps}, seed={seed}, id_weight={id_weight}")
     generator = torch.Generator(device=device).manual_seed(seed)
     result = pipe(
         prompt=prompt,
+        negative_prompt=negative_prompt if guidance_scale > 1.0 else None,
         width=width,
         height=height,
         num_inference_steps=num_steps,
