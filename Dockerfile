@@ -84,29 +84,29 @@ RUN mkdir -p /app/models/Chroma/scheduler /app/models/Chroma/text_encoder \
 
 # 1b. Chroma large files (each downloaded separately for Docker layer caching)
 RUN echo "=== Downloading Chroma text_encoder shard 1/2 ===" \
-    && wget -q --show-progress -O /app/models/Chroma/text_encoder/model-00001-of-00002.safetensors \
+    && wget -nv -O /app/models/Chroma/text_encoder/model-00001-of-00002.safetensors \
        "$HF_BASE/lodestones/Chroma/resolve/main/text_encoder/model-00001-of-00002.safetensors"
 
 RUN echo "=== Downloading Chroma text_encoder shard 2/2 ===" \
-    && wget -q --show-progress -O /app/models/Chroma/text_encoder/model-00002-of-00002.safetensors \
+    && wget -nv -O /app/models/Chroma/text_encoder/model-00002-of-00002.safetensors \
        "$HF_BASE/lodestones/Chroma/resolve/main/text_encoder/model-00002-of-00002.safetensors"
 
 RUN echo "=== Downloading Chroma transformer shard 1/2 ===" \
-    && wget -q --show-progress -O /app/models/Chroma/transformer/diffusion_pytorch_model-00001-of-00002.safetensors \
+    && wget -nv -O /app/models/Chroma/transformer/diffusion_pytorch_model-00001-of-00002.safetensors \
        "$HF_BASE/lodestones/Chroma/resolve/main/transformer/diffusion_pytorch_model-00001-of-00002.safetensors"
 
 RUN echo "=== Downloading Chroma transformer shard 2/2 ===" \
-    && wget -q --show-progress -O /app/models/Chroma/transformer/diffusion_pytorch_model-00002-of-00002.safetensors \
+    && wget -nv -O /app/models/Chroma/transformer/diffusion_pytorch_model-00002-of-00002.safetensors \
        "$HF_BASE/lodestones/Chroma/resolve/main/transformer/diffusion_pytorch_model-00002-of-00002.safetensors"
 
 RUN echo "=== Downloading Chroma VAE ===" \
-    && wget -q --show-progress -O /app/models/Chroma/vae/diffusion_pytorch_model.safetensors \
+    && wget -nv -O /app/models/Chroma/vae/diffusion_pytorch_model.safetensors \
        "$HF_BASE/lodestones/Chroma/resolve/main/vae/diffusion_pytorch_model.safetensors"
 
 # 2. PuLID model weights
 RUN echo "=== Downloading PuLID model ===" \
     && mkdir -p /app/models \
-    && wget -q --show-progress -O /app/models/pulid_flux_v0.9.1.safetensors \
+    && wget -nv -O /app/models/pulid_flux_v0.9.1.safetensors \
        "$HF_BASE/guozinan/PuLID/resolve/main/pulid_flux_v0.9.1.safetensors"
 
 # 3. InsightFace antelopev2 (public mirror, small files)
