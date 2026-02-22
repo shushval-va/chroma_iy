@@ -5,10 +5,6 @@ ENV PYTHONUNBUFFERED=1
 ENV HF_HUB_DOWNLOAD_TIMEOUT=600
 ENV HF_HUB_ENABLE_HF_TRANSFER=1
 
-# Accept HF token as build arg for faster downloads (optional)
-ARG HF_TOKEN=""
-ENV HF_TOKEN=${HF_TOKEN}
-
 # System dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git wget g++ libgl1-mesa-glx libglib2.0-0 \
@@ -53,27 +49,67 @@ import facexlib; print('facexlib OK'); \
 "
 
 # ===== Download ALL models at build time (all public, no auth needed) =====
+# Using wget instead of Python to stream files directly to disk (zero RAM overhead)
 
-# 1. Chroma model (diffusers format, Apache 2.0)
-# Download sequentially (max_workers=1) to avoid OOM during build
-RUN python -c "\
-from huggingface_hub import snapshot_download; \
-import os; \
-os.environ['HF_HUB_ENABLE_HF_TRANSFER'] = '0'; \
-print('=== Downloading Chroma model (sequential) ==='); \
-snapshot_download('lodestones/Chroma', local_dir='/app/models/Chroma', max_workers=1); \
-print('Chroma download complete'); \
-"
+ENV HF_BASE=https://huggingface.co
+
+# 1. Chroma model — ONLY diffusers-format files (16 files, ~28GB)
+#    The repo has 100+ files (~1.3TB) including old checkpoints we don't need
+RUN mkdir -p /app/models/Chroma/scheduler /app/models/Chroma/text_encoder \
+    /app/models/Chroma/tokenizer /app/models/Chroma/transformer /app/models/Chroma/vae \
+    && echo "=== Downloading Chroma pipeline configs ===" \
+    && wget -q -O /app/models/Chroma/model_index.json \
+       "$HF_BASE/lodestones/Chroma/resolve/main/model_index.json" \
+    && wget -q -O /app/models/Chroma/scheduler/scheduler_config.json \
+       "$HF_BASE/lodestones/Chroma/resolve/main/scheduler/scheduler_config.json" \
+    && wget -q -O /app/models/Chroma/tokenizer/added_tokens.json \
+       "$HF_BASE/lodestones/Chroma/resolve/main/tokenizer/added_tokens.json" \
+    && wget -q -O /app/models/Chroma/tokenizer/special_tokens_map.json \
+       "$HF_BASE/lodestones/Chroma/resolve/main/tokenizer/special_tokens_map.json" \
+    && wget -q -O /app/models/Chroma/tokenizer/spiece.model \
+       "$HF_BASE/lodestones/Chroma/resolve/main/tokenizer/spiece.model" \
+    && wget -q -O /app/models/Chroma/tokenizer/tokenizer_config.json \
+       "$HF_BASE/lodestones/Chroma/resolve/main/tokenizer/tokenizer_config.json" \
+    && wget -q -O /app/models/Chroma/text_encoder/config.json \
+       "$HF_BASE/lodestones/Chroma/resolve/main/text_encoder/config.json" \
+    && wget -q -O /app/models/Chroma/text_encoder/model.safetensors.index.json \
+       "$HF_BASE/lodestones/Chroma/resolve/main/text_encoder/model.safetensors.index.json" \
+    && wget -q -O /app/models/Chroma/transformer/config.json \
+       "$HF_BASE/lodestones/Chroma/resolve/main/transformer/config.json" \
+    && wget -q -O /app/models/Chroma/transformer/diffusion_pytorch_model.safetensors.index.json \
+       "$HF_BASE/lodestones/Chroma/resolve/main/transformer/diffusion_pytorch_model.safetensors.index.json" \
+    && wget -q -O /app/models/Chroma/vae/config.json \
+       "$HF_BASE/lodestones/Chroma/resolve/main/vae/config.json" \
+    && echo "Chroma configs downloaded"
+
+# 1b. Chroma large files (each downloaded separately for Docker layer caching)
+RUN echo "=== Downloading Chroma text_encoder shard 1/2 ===" \
+    && wget -q --show-progress -O /app/models/Chroma/text_encoder/model-00001-of-00002.safetensors \
+       "$HF_BASE/lodestones/Chroma/resolve/main/text_encoder/model-00001-of-00002.safetensors"
+
+RUN echo "=== Downloading Chroma text_encoder shard 2/2 ===" \
+    && wget -q --show-progress -O /app/models/Chroma/text_encoder/model-00002-of-00002.safetensors \
+       "$HF_BASE/lodestones/Chroma/resolve/main/text_encoder/model-00002-of-00002.safetensors"
+
+RUN echo "=== Downloading Chroma transformer shard 1/2 ===" \
+    && wget -q --show-progress -O /app/models/Chroma/transformer/diffusion_pytorch_model-00001-of-00002.safetensors \
+       "$HF_BASE/lodestones/Chroma/resolve/main/transformer/diffusion_pytorch_model-00001-of-00002.safetensors"
+
+RUN echo "=== Downloading Chroma transformer shard 2/2 ===" \
+    && wget -q --show-progress -O /app/models/Chroma/transformer/diffusion_pytorch_model-00002-of-00002.safetensors \
+       "$HF_BASE/lodestones/Chroma/resolve/main/transformer/diffusion_pytorch_model-00002-of-00002.safetensors"
+
+RUN echo "=== Downloading Chroma VAE ===" \
+    && wget -q --show-progress -O /app/models/Chroma/vae/diffusion_pytorch_model.safetensors \
+       "$HF_BASE/lodestones/Chroma/resolve/main/vae/diffusion_pytorch_model.safetensors"
 
 # 2. PuLID model weights
-RUN python -c "\
-from huggingface_hub import hf_hub_download; \
-print('=== Downloading PuLID model ==='); \
-hf_hub_download('guozinan/PuLID', 'pulid_flux_v0.9.1.safetensors', local_dir='/app/models'); \
-print('PuLID download complete'); \
-"
+RUN echo "=== Downloading PuLID model ===" \
+    && mkdir -p /app/models \
+    && wget -q --show-progress -O /app/models/pulid_flux_v0.9.1.safetensors \
+       "$HF_BASE/guozinan/PuLID/resolve/main/pulid_flux_v0.9.1.safetensors"
 
-# 3. InsightFace antelopev2 (public mirror)
+# 3. InsightFace antelopev2 (public mirror, small files)
 RUN python -c "\
 from huggingface_hub import snapshot_download; \
 print('=== Downloading antelopev2 ==='); \
