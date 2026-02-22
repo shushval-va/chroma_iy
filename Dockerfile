@@ -5,6 +5,10 @@ ENV PYTHONUNBUFFERED=1
 ENV HF_HUB_DOWNLOAD_TIMEOUT=600
 ENV HF_HUB_ENABLE_HF_TRANSFER=1
 
+# Accept HF token as build arg for faster downloads (optional)
+ARG HF_TOKEN=""
+ENV HF_TOKEN=${HF_TOKEN}
+
 # System dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git wget g++ libgl1-mesa-glx libglib2.0-0 \
@@ -51,10 +55,13 @@ import facexlib; print('facexlib OK'); \
 # ===== Download ALL models at build time (all public, no auth needed) =====
 
 # 1. Chroma model (diffusers format, Apache 2.0)
+# Download sequentially (max_workers=1) to avoid OOM during build
 RUN python -c "\
 from huggingface_hub import snapshot_download; \
-print('=== Downloading Chroma model ==='); \
-snapshot_download('lodestones/Chroma', local_dir='/app/models/Chroma'); \
+import os; \
+os.environ['HF_HUB_ENABLE_HF_TRANSFER'] = '0'; \
+print('=== Downloading Chroma model (sequential) ==='); \
+snapshot_download('lodestones/Chroma', local_dir='/app/models/Chroma', max_workers=1); \
 print('Chroma download complete'); \
 "
 
